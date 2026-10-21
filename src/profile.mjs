@@ -1,5 +1,5 @@
 import {isIP} from 'node:net';
-export const DEFAULTS={name:'My server',host:'',port:22,user:'root',sshAuth:'key',keyPath:'',password:'',passphrase:'',hostFingerprint:'',codexAuth:'device',authJson:'',openaiKey:'',codexVersion:'0.163.0',nodeVersion:'24.19.0',proxyMode:'none',proxyUrl:'',clineEnabled:false,clineKey:'',clineModel:'',clineVersion:'4.1.25',vscodeCommit:'',containerFullAccess:false};
+export const DEFAULTS={name:'My server',host:'',port:22,user:'root',sshAuth:'key',keyPath:'',password:'',passphrase:'',hostFingerprint:'',codexAuth:'device',authJson:'',openaiKey:'',codexVersion:'latest',nodeVersion:'24.19.0',proxyMode:'none',proxyUrl:'',clineEnabled:false,clineKey:'',clineModel:'',clineVersion:'4.1.25',vscodeCommit:'',containerFullAccess:false};
 const fail=message=>{throw Error(message);};
 export function parseSsh(text){
   const words=String(text).match(/"[^"]*"|'[^']*'|[^\s]+/g)?.map(x=>/^['"]/.test(x)?x.slice(1,-1):x)||[];
@@ -26,7 +26,10 @@ export function validateProfile(input,previous={}){
   else p.authJson='';
   if(p.codexAuth==='api'&&!p.openaiKey)fail('请提供 Codex 使用的 OpenAI API Key。');
   if(p.codexAuth!=='api')p.openaiKey='';
-  for(const k of ['codexVersion','nodeVersion','clineVersion'])if(!/^\d+\.\d+\.\d+$/.test(p[k]))fail('请填写明确版本号：'+k);
+  if(p.codexVersion!=='latest'&&!/^\d+\.\d+\.\d+$/.test(p.codexVersion))fail('Codex CLI 使用 latest 稳定版。');
+  // Legacy profiles used a pinned version; all installs now track the official stable tag.
+  p.codexVersion='latest';
+  for(const k of ['nodeVersion','clineVersion'])if(!/^\d+\.\d+\.\d+$/.test(p[k]))fail('请填写明确版本号：'+k);
   if(!['none','remote','local'].includes(p.proxyMode))fail('代理方式不正确。');
   if(p.proxyMode!=='none'){let url;try{url=new URL(p.proxyUrl);}catch{fail('请提供完整 HTTP/HTTPS 代理 URL。');}if(!['http:','https:'].includes(url.protocol)||url.pathname!=='/'||url.search||url.hash)fail('代理仅支持 HTTP/HTTPS URL，不带路径、查询或片段。');if(p.proxyMode==='local'&&url.protocol!=='http:')fail('本机 SSH 转发模式请使用 HTTP 代理端口。');}else p.proxyUrl='';
   if(typeof p.clineEnabled!=='boolean'||typeof p.containerFullAccess!=='boolean')fail('开关字段必须为布尔值。');
@@ -38,7 +41,7 @@ export function validateProfile(input,previous={}){
   if(previous.host&&(previous.host!==p.host||previous.port!==p.port))p.hostFingerprint='';
   return Object.fromEntries(Object.keys(DEFAULTS).map(k=>[k,p[k]]));
 }
-export function publicProfile(p,id){const safe={...p,id};for(const k of ['password','passphrase','openaiKey','clineKey','authJson']){safe['has'+k[0].toUpperCase()+k.slice(1)]=!!safe[k];safe[k]='';}if(safe.proxyUrl){const u=new URL(safe.proxyUrl);if(u.username||u.password){safe.proxyUrl='';safe.hasProxyUrl=true;}}return safe;}
+export function publicProfile(p,id){const safe={...p,id,codexVersion:'latest'};for(const k of ['password','passphrase','openaiKey','clineKey','authJson']){safe['has'+k[0].toUpperCase()+k.slice(1)]=!!safe[k];safe[k]='';}if(safe.proxyUrl){const u=new URL(safe.proxyUrl);if(u.username||u.password){safe.proxyUrl='';safe.hasProxyUrl=true;}}return safe;}
 export function redact(value,p={}){
   let s=String(value);const secrets=[p.password,p.passphrase,p.openaiKey,p.clineKey,p.proxyUrl,p.authJson];
   try{const u=new URL(p.proxyUrl);secrets.push(decodeURIComponent(u.password));}catch{}

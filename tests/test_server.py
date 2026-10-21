@@ -58,4 +58,103 @@ class ServerTests(unittest.TestCase):
         event={'type':'item.completed','item':{'type':'command_execution','status':'completed','exit_code':0,'command':"/bin/bash -lc 'printf TOOL_OK'",'aggregated_output':'TOOL_OK'}}
         self.assertTrue(setup.evidence(json.dumps(event),'TOOL_OK'))
         self.assertFalse(setup.evidence(json.dumps(event),'WRONG'))
+class LatestCodexTests(unittest.TestCase):
+    @contextlib.contextmanager
+    def fixture(self,latest=('1.2.3','1.2.3'),installed=None):
+        with tempfile.TemporaryDirectory() as tmp,contextlib.ExitStack() as stack:
+            base=Path(tmp)/'state';base.mkdir();home=Path(tmp)/'home';auth=home/'.codex/auth.json';auth.parent.mkdir(parents=True);auth.write_text('synthetic-auth-preserved')
+            package=base/'npm/lib/node_modules/@openai/codex/package.json';entry=package.parent/'bin/codex.js'
+            def package_at(version):
+                entry.parent.mkdir(parents=True,exist_ok=True);entry.write_text('// fixture');package.write_text(json.dumps({'version':version}))
+            if installed:package_at(installed)
+            state={'queries':iter(latest),'runtime':installed,'installs':[],'events':[],'auth':auth,'base':base}
+            def fake_run(args,stage,timeout=600,input=None):
+                log=base/(stage+'.log')
+                if stage=='codex-latest':
+                    self.assertIn('--prefer-online',args);self.assertIn('--prefer-offline=false',args);self.assertIn('--offline=false',args);self.assertIn('--@openai:registry='+setup.NPM_REGISTRY,args);self.assertIn(setup.NPM_REGISTRY,args)
+                    value=next(state['queries'])
+                    if isinstance(value,Exception):raise value
+                    log.write_text(json.dumps(value))
+                elif stage=='codex-install':
+                    version=str(args[-1]).split('@')[-1];state['installs'].append(version);package_at(version);state['runtime']=state.get('afterInstallRuntime',version)
+                    self.assertIn(setup.NPM_REGISTRY,args);log.write_text('installed')
+                elif stage=='codex-version':log.write_text('codex-cli '+str(state['runtime'])+'\n')
+                else:raise AssertionError('Unexpected install stage '+stage)
+                return log
+            for key,value in {'BASE':base,'BIN':home/'.local/bin','HOME':home,'CONFIG':{'codexVersion':'0.163.0'}}.items():stack.enter_context(mock.patch.object(setup,key,value))
+            stack.enter_context(mock.patch.object(setup,'install_node',return_value=base/'node/runtime'))
+            stack.enter_context(mock.patch.object(setup,'run',side_effect=fake_run))
+            stack.enter_context(mock.patch.object(setup,'emit',side_effect=lambda kind,message='',**extra:state['events'].append((kind,message))))
+            yield state
+            self.assertEqual(auth.read_text(),'synthetic-auth-preserved')
+
+    def test_installs_resolved_stable_version_and_records_verified_release(self):
+        with self.fixture() as s:
+            setup.install_codex();self.assertEqual(s['installs'],['1.2.3'])
+            self.assertEqual((s['base']/'installed-codex-version.txt').read_text().strip(),'1.2.3')
+            report=json.loads((s['base']/'installed-codex-release.json').read_text())
+            self.assertEqual(report['version'],'1.2.3');self.assertEqual(report['policy'],'latest')
+
+    def test_stale_marker_does_not_skip_upgrade(self):
+        with self.fixture(installed='1.2.2') as s:
+            (s['base']/'installed-codex-version.txt').write_text('1.2.3')
+            setup.install_codex();self.assertEqual(s['installs'],['1.2.3'])
+
+    def test_current_install_rechecks_official_latest_and_runtime_without_reinstall(self):
+        with self.fixture(installed='1.2.3') as s:
+            setup.install_codex();self.assertEqual(s['installs'],[])
+            self.assertEqual(list(s['queries']),[])
+
+    def test_offline_query_does_not_fall_back_to_installed_version(self):
+        with self.fixture(latest=(RuntimeError('official registry unavailable'),),installed='1.2.3') as s:
+            with self.assertRaisesRegex(RuntimeError,'registry unavailable'):setup.install_codex()
+            self.assertEqual(s['installs'],[]);self.assertFalse(any(k=='success' for k,_ in s['events']))
+
+    def test_rejects_invalid_or_prerelease_latest(self):
+        for value in ['1.2.3-beta.1','latest;command',{'version':'1.2.3'},['1.2.3'],'']:
+            with self.subTest(value=value),self.fixture(latest=(value,)) as s:
+                with self.assertRaises(RuntimeError):setup.install_codex()
+                self.assertEqual(s['installs'],[])
+
+    def test_invalid_local_package_metadata_is_reinstalled(self):
+        for content in ['[]','{']:
+            with self.subTest(content=content),self.fixture(installed='1.2.3') as s:
+                package=s['base']/'npm/lib/node_modules/@openai/codex/package.json'
+                package.write_text(content)
+                setup.install_codex();self.assertEqual(s['installs'],['1.2.3'])
+
+    def test_runtime_mismatch_after_install_is_failure(self):
+        with self.fixture() as s:
+            s['afterInstallRuntime']='1.2.2'
+            with self.assertRaisesRegex(RuntimeError,'实际版本'):setup.install_codex()
+            self.assertFalse((s['base']/'installed-codex-version.txt').exists())
+            self.assertFalse(any(k=='success' for k,_ in s['events']))
+
+    def test_corrupt_existing_runtime_is_reinstalled(self):
+        with self.fixture(installed='1.2.3') as s:
+            s['runtime']='broken'
+            setup.install_codex();self.assertEqual(s['installs'],['1.2.3'])
+
+    def test_release_published_during_install_triggers_upgrade(self):
+        with self.fixture(latest=('1.2.3','1.2.4','1.2.4','1.2.4')) as s:
+            setup.install_codex();self.assertEqual(s['installs'],['1.2.3','1.2.4'])
+            self.assertEqual((s['base']/'installed-codex-version.txt').read_text().strip(),'1.2.4')
+
+    def test_continuously_changing_latest_cannot_report_success(self):
+        with self.fixture(latest=('1.2.3','1.2.4','1.2.5','1.2.6')) as s:
+            with self.assertRaisesRegex(RuntimeError,'持续变化'):setup.install_codex()
+            self.assertFalse(any(k=='success' for k,_ in s['events']))
+
+    def test_failed_final_query_cannot_record_latest_success(self):
+        with self.fixture(latest=('1.2.3',RuntimeError('final registry query unavailable'))) as s:
+            with self.assertRaises(RuntimeError):setup.install_codex()
+            self.assertFalse((s['base']/'installed-codex-version.txt').exists())
+            self.assertFalse(any(k=='success' for k,_ in s['events']))
+
+    def test_legacy_version_policy_migrates_only_valid_versions(self):
+        self.assertEqual(setup.codex_version_policy('0.163.0'),'latest')
+        self.assertEqual(setup.codex_version_policy(),'latest')
+        for value in ['beta','1.2.3;command',None]:
+            with self.assertRaises(RuntimeError):setup.codex_version_policy(value)
+
 if __name__=='__main__':unittest.main()

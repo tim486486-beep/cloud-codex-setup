@@ -98,21 +98,72 @@ def write_proxy():
         text='export HTTP_PROXY='+shlex.quote(proxy)+'\nexport HTTPS_PROXY='+shlex.quote(proxy)+'\nexport ALL_PROXY='+shlex.quote(proxy)+'\nexport NO_PROXY=127.0.0.1,localhost,::1\n'
     atomic(BASE/'proxy.env',text)
 
+NPM_REGISTRY='https://registry.npmjs.org'
+STABLE_VERSION=r'\d+\.\d+\.\d+'
+
+def codex_version_policy(value='latest'):
+    if value!='latest' and (not isinstance(value,str) or not re.fullmatch(STABLE_VERSION,value)):
+        raise RuntimeError('Codex 版本参数不正确；仅使用 latest 稳定版。')
+    return 'latest'
+
+
+def latest_codex_version(node):
+    emit('stage','查询 npm 官方源的 Codex CLI 最新稳定版。')
+    log=run([node/'bin/node',node/'lib/node_modules/npm/bin/npm-cli.js','view','@openai/codex','dist-tags.latest','--json','--registry',NPM_REGISTRY,'--prefer-online','--prefer-offline=false','--offline=false','--@openai:registry='+NPM_REGISTRY,'--fetch-retries=1','--fetch-timeout=30000'],'codex-latest',120)
+    try:
+        value=json.loads(log.read_text(encoding='utf-8'))
+    except (OSError,ValueError):raise RuntimeError('npm latest 响应无效，未使用缓存版本代替最新版。')
+    if not isinstance(value,str) or not re.fullmatch(STABLE_VERSION,value):
+        raise RuntimeError('npm latest 未返回有效稳定版本，安装未通过。')
+    return value
+
+
+def codex_runtime_version(node,entry):
+    log=run([node/'bin/node',entry,'--version'],'codex-version',120)
+    match=re.fullmatch(r'codex-cli ('+STABLE_VERSION+r')',log.read_text(encoding='utf-8').strip())
+    if not match:raise RuntimeError('Codex CLI 未返回有效的实际版本号。')
+    return match.group(1)
+
+
+def codex_package_version(package):
+    try:
+        value=json.loads(package.read_text(encoding='utf-8'))
+        return value.get('version') if isinstance(value,dict) else None
+    except (OSError,ValueError):return None
+
+
 def install_codex():
-    node=install_node();npm=BASE/'npm';version=CONFIG['codexVersion']
-    marker=BASE/'installed-codex-version.txt'
-    if not (marker.exists() and marker.read_text().strip()==version and (npm/'lib/node_modules/@openai/codex/bin/codex.js').exists()):
-        emit('stage','从 npm 官方源安装 Codex CLI。')
-        run([node/'bin/node',node/'lib/node_modules/npm/bin/npm-cli.js','install','--global','--prefix',npm,'--registry','https://registry.npmjs.org','--no-audit','--no-fund','@openai/codex@'+version],'codex-install',2400)
-        atomic(marker,version+'\n')
+    node=install_node();npm=BASE/'npm'
+    package=npm/'lib/node_modules/@openai/codex/package.json'
+    entry=package.parent/'bin/codex.js'
+    # Query on every run; an old marker or cached package cannot establish latest.
+    for attempt in range(2):
+        version=latest_codex_version(node)
+        emit('info','本次查询的 Codex CLI 最新稳定版：'+version+'。')
+        actual=None
+        if entry.exists() and codex_package_version(package)==version:
+            try:actual=codex_runtime_version(node,entry)
+            except RuntimeError:emit('info','现有 Codex 无法通过版本检查，重新安装。')
+        if actual!=version:
+            emit('stage','从 npm 官方源安装 / 升级 Codex CLI '+version+'。')
+            run([node/'bin/node',node/'lib/node_modules/npm/bin/npm-cli.js','install','--global','--prefix',npm,'--registry',NPM_REGISTRY,'--prefer-online','--prefer-offline=false','--offline=false','--@openai:registry='+NPM_REGISTRY,'--no-audit','--no-fund','@openai/codex@'+version],'codex-install',2400)
+            actual=codex_runtime_version(node,entry)
+        if actual!=version or codex_package_version(package)!=version:
+            raise RuntimeError('Codex CLI 实际版本与官方目标版本不一致，安装未通过。')
+        if latest_codex_version(node)==version:break
+        emit('info','安装期间 npm latest 已更新，重新查询并升级。')
+    else:raise RuntimeError('npm latest 在安装期间持续变化，请重新安装；未宣告最新版验收成功。')
     BIN.mkdir(parents=True,exist_ok=True)
     wrapper=BIN/'codex';text='#!/usr/bin/env bash\nset -e\n'
     text+='export PATH='+shlex.quote(str(node/'bin'))+':"$PATH"\n'
     text+='source '+shlex.quote(str(BASE/'proxy.env'))+'\n'
-    text+='exec '+shlex.quote(str(node/'bin/node'))+' '+shlex.quote(str(npm/'lib/node_modules/@openai/codex/bin/codex.js'))+' "$@"\n'
+    text+='exec '+shlex.quote(str(node/'bin/node'))+' '+shlex.quote(str(entry))+' "$@"\n'
     if wrapper.exists() and 'cloud-codex-setup' not in wrapper.read_text(errors='replace'):backup(wrapper)
     atomic(wrapper,text);os.chmod(wrapper,0o700)
-    emit('success','Codex CLI 已安装到用户目录；运行路径 ~/.local/bin/codex。')
+    atomic(BASE/'installed-codex-version.txt',version+'\n')
+    atomic(BASE/'installed-codex-release.json',json.dumps({'policy':'latest','version':version,'registry':NPM_REGISTRY,'verifiedAt':time.strftime('%Y-%m-%dT%H:%M:%SZ',time.gmtime())})+'\n')
+    emit('success','Codex CLI 最新稳定版 '+version+' 已安装并核对；运行路径 ~/.local/bin/codex。')
+
 
 def configure_auth():
     mode=CONFIG['codexAuth']
@@ -262,7 +313,8 @@ def model_test():
 def main():
     global CONFIG
     CONFIG=json.load(sys.stdin)
-    for key in ('nodeVersion','codexVersion','clineVersion'):
+    CONFIG['codexVersion']=codex_version_policy(CONFIG.get('codexVersion','latest'))
+    for key in ('nodeVersion','clineVersion'):
         if not re.fullmatch(r'\d+\.\d+\.\d+',CONFIG[key]):raise RuntimeError('版本参数不正确。')
     if CONFIG.get('clineEnabled') and not re.fullmatch(r'[a-f0-9]{40}',CONFIG.get('vscodeCommit','')):raise RuntimeError('VS Code commit 不正确。')
     if platform.system()!='Linux':raise RuntimeError('目标服务器需要 Linux。')
