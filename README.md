@@ -8,8 +8,8 @@
 
 ## 下载
 
-- [Windows x64 便携版 v1.1.0](https://github.com/tim486486-beep/cloud-codex-setup/releases/download/v1.1.0/cloud-codex-setup-windows-x64-v1.1.0.zip)：内置 Node.js，解压后双击 start.cmd。
-- [源码版与 SHA-256 校验文件](https://github.com/tim486486-beep/cloud-codex-setup/releases/tag/v1.1.0)。
+- [Windows x64 便携版 v1.1.1](https://github.com/tim486486-beep/cloud-codex-setup/releases/download/v1.1.1/cloud-codex-setup-windows-x64-v1.1.1.zip)：内置 Node.js，解压后双击 start.cmd。
+- [源码版与 SHA-256 校验文件](https://github.com/tim486486-beep/cloud-codex-setup/releases/tag/v1.1.1)。
 
 使用教程直接位于项目和解压包的根目录。
 
@@ -21,7 +21,7 @@ Cline 4.1.25 面板真实会话已在正常 GPU 模式下完成：微软 VS Code
 
 OpenAI API Key 已在 Windows 本机隔离的 CODEX_HOME 中通过标准输入登录，确认保存为 apikey 模式，官方模型列表接口返回 HTTP 200。一次最小模型请求返回 HTTP 429 / credit_balance_exhausted；尚未完成 API Key 模式的服务器部署及 Codex 真实模型回复验收。临时明文登录文件在检查后删除，未覆盖现有登录。另一云厂商、ARM64、非 root 实机部署及非 Windows 本地客户端也未逐项实测。
 
-1.1.0 新增安装时自动跟随 Codex CLI 官方最新稳定版，兼容旧配置并核对实际运行版本。1.0.7 更新了 Cline 面板验收范围和操作说明。1.0.6 修复了 Windows 直接运行 CLI 时中文配置的子进程编码问题，以及设备登录失败时误把令牌 API 地址当成授权网页的问题。
+1.1.1 修复 npm 首次运行提示混入版本 JSON 导致安装失败的问题，标准输出与私有错误日志分别保存。1.1.0 新增安装时自动跟随 Codex CLI 官方最新稳定版，兼容旧配置并核对实际运行版本。1.0.7 更新了 Cline 面板验收范围和操作说明。1.0.6 修复了 Windows 直接运行 CLI 时中文配置的子进程编码问题，以及设备登录失败时误把令牌 API 地址当成授权网页的问题。
 
 ## 完整使用教程
 
@@ -98,7 +98,7 @@ node src/cli.mjs run PROFILE_ID model-test
 
 Windows 便携版可以把上面的 `node` 换成 `.\runtime\node.exe`。未知主机需先核实指纹，再使用 `trust PROFILE_ID SHA256:FINGERPRINT` 保存信任。CLI 的本机代理模式会保持运行，按 Ctrl+C 才断开。
 
-本轮最新版策略新增了升级、离线失败、版本不符和上游版本变化的回归测试；官方 npm 的真实独立安装另在 Windows x64 隔离目录核对。此项未重新启动 Linux 测试实例，不替代 Linux 服务器端完整复测。
+2026-10-21 使用公开便携包，在新租用的 Linux x86_64 / Ubuntu 24.04 基础镜像容器完成从零安装实测：官方 latest、包版本和实际 Codex CLI 均为 0.163.0，真实回复 EXT_OK，实际 shell 命令执行成功并返回 TOOL_OK，DeepSeek API 返回 CLINE_OK。重复安装重新查询官方 latest 并保留服务器登录文件。本轮未重测 Cline 面板会话；使用的是可选本机代理转发线路。首次 v1.1.0 实测暴露 npm 提示混入 JSON 的问题，v1.1.1 已修复并通过 32 项测试。
 
 ## 开发与验证
 

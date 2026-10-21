@@ -4,6 +4,14 @@ from unittest import mock
 spec=importlib.util.spec_from_file_location('setup',Path(__file__).resolve().parents[1]/'server/setup.py')
 setup=importlib.util.module_from_spec(spec);spec.loader.exec_module(setup)
 class ServerTests(unittest.TestCase):
+    def test_structured_stdout_excludes_npm_notices_on_stderr(self):
+        import sys
+        with tempfile.TemporaryDirectory() as tmp,mock.patch.object(setup,'BASE',Path(tmp)),mock.patch.object(setup,'environment',return_value=dict(setup.os.environ)):
+            code='import sys; print(chr(34)+"1.2.3"+chr(34)); print("npm notice A new npm version is available",file=sys.stderr)'
+            log=setup.run([sys.executable,'-c',code],'codex-latest',30)
+            self.assertEqual(json.loads(log.read_text()),'1.2.3')
+            self.assertIn('npm notice',(Path(tmp)/'codex-latest.stderr.private.log').read_text())
+
     def test_device_login_never_exposes_token_endpoint_as_browser_url(self):
         process=mock.Mock()
         process.stdout=iter(['Open https://auth.openai.com/codex/device\n','ABCD-12345\n','HTTP 403 from https://auth.openai.com/api/accounts/deviceauth/token\n'])

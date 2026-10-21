@@ -44,10 +44,12 @@ def arch():
 
 def run(args,stage,timeout=600,input=None):
     log=BASE/(stage+'.private.log')
-    fd=os.open(log,os.O_WRONLY|os.O_CREAT|os.O_TRUNC,0o600)
+    # Keep machine-readable stdout separate from npm notices and warnings.
+    error_log=BASE/(stage+'.stderr.private.log')
     try:
-        with os.fdopen(fd,'wb') as output:
-            result=subprocess.run([str(x) for x in args],input=input,stdout=output,stderr=subprocess.STDOUT,env=environment(),timeout=timeout)
+        with open(log,'wb') as output,open(error_log,'wb') as errors:
+            os.chmod(log,0o600);os.chmod(error_log,0o600)
+            result=subprocess.run([str(x) for x in args],input=input,stdout=output,stderr=errors,env=environment(),timeout=timeout)
     except subprocess.TimeoutExpired:raise RuntimeError(stage+' 超时；原始日志仅留在远端私有目录。')
     if result.returncode:raise RuntimeError(stage+' 失败，退出码 '+str(result.returncode)+'；未回显原始日志。')
     return log
