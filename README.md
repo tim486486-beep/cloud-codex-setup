@@ -4,8 +4,8 @@
 
 ## 下载
 
-- [Windows x64 便携版 v1.0.6](https://github.com/tim486486-beep/cloud-codex-setup/releases/download/v1.0.6/cloud-codex-setup-windows-x64-v1.0.6.zip)：内置 Node.js，解压后双击 start.cmd。
-- [源码版与 SHA-256 校验文件](https://github.com/tim486486-beep/cloud-codex-setup/releases/tag/v1.0.6)。
+- [Windows x64 便携版 v1.0.7](https://github.com/tim486486-beep/cloud-codex-setup/releases/download/v1.0.7/cloud-codex-setup-windows-x64-v1.0.7.zip)：内置 Node.js，解压后双击 start.cmd。
+- [源码版与 SHA-256 校验文件](https://github.com/tim486486-beep/cloud-codex-setup/releases/tag/v1.0.7)。
 
 使用教程直接位于项目和解压包的根目录。
 
@@ -13,9 +13,11 @@
 
 Windows 客户端到 Linux x86_64 已验证 SSH 密码与私钥、Codex 登录文件导入、本人设备码授权后的真实 EXT_OK 回复与 shell 执行 TOOL_OK、DeepSeek API 和 SSH 本机代理转发。设备码登录本次在本机 HTTP 代理经 SSH 转发的线路上通过；原服务器代理线路未完成令牌交换。
 
-Cline 面板真实会话尚未完成；OpenAI API Key 登录因未提供对应密钥而未实测。ARM64、非 root 实机部署及非 Windows 本地客户端也未逐项实测。不要把 DeepSeek API 通过当成 Cline 面板会话通过。
+Cline 4.1.25 面板真实会话已在正常 GPU 模式下完成：微软 VS Code Web 工作台通过 SSH 回环隧道访问，DeepSeek 模型在面板返回 CLINE_PANEL_OK，任务状态为 COMPLETED，持久化记录确认回复角色为 assistant。桌面 VS Code Remote - SSH 的面板交互未单独复测。
 
-1.0.6 修复了 Windows 直接运行 CLI 时中文配置的子进程编码问题，以及设备登录失败时误把令牌 API 地址当成授权网页的问题。
+OpenAI API Key 已在 Windows 本机隔离的 CODEX_HOME 中通过标准输入登录，确认保存为 apikey 模式，官方模型列表接口返回 HTTP 200。一次最小模型请求返回 HTTP 429 / credit_balance_exhausted；尚未完成 API Key 模式的服务器部署及 Codex 真实模型回复验收。临时明文登录文件在检查后删除，未覆盖现有登录。另一云厂商、ARM64、非 root 实机部署及非 Windows 本地客户端也未逐项实测。
+
+1.0.7 更新了 Cline 面板验收范围和操作说明。1.0.6 修复了 Windows 直接运行 CLI 时中文配置的子进程编码问题，以及设备登录失败时误把令牌 API 地址当成授权网页的问题。
 
 ## 完整使用教程
 
