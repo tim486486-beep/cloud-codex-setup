@@ -7,6 +7,8 @@ import {createHash} from 'node:crypto';
 import {connect as netConnect} from 'node:net';
 import {fileURLToPath} from 'node:url';
 import {redact} from './profile.mjs';
+import {localIdentity} from './ssh-key.mjs';
+import {randomUUID} from 'node:crypto';
 const ROOT=join(dirname(fileURLToPath(import.meta.url)),'..');
 export function fingerprint(key){return 'SHA256:'+createHash('sha256').update(key).digest('base64').replace(/=+$/,'');}
 export function detectVscodeCommit(){
@@ -45,7 +47,32 @@ export class RemoteManager{
   async exec(session,command,input,{timeout=1200000,onData=()=>{}}={}){
     return new Promise((resolve,reject)=>{const timer=setTimeout(()=>{session.client.end();reject(Error('远程步骤超时；连接已关闭。'));},timeout);session.client.exec(command,(error,stream)=>{if(error){clearTimeout(timer);reject(Error('无法启动远程步骤。'));return;}let code=null;stream.on('data',data=>{try{onData(data.toString('utf8'));}catch{stream.close();clearTimeout(timer);reject(Error('远程输出超出限制或格式不正确。'));}});stream.stderr.on('data',()=>{});stream.on('exit',value=>{code=value??1;});stream.once('error',()=>{clearTimeout(timer);reject(Error('远程数据流中断。'));});stream.once('close',()=>{clearTimeout(timer);resolve(code??255);});stream.end(input);});});
   }
+  async installSshKey(id,p,emit){
+    if(p.sshAuth!=='password'||!p.password)throw Error('请先选择 SSH 密码认证，保存服务器密码及本机私钥路径。');
+    const identity=localIdentity(p),bootstrap='key-upload-'+randomUUID(),check='key-check-'+randomUUID();
+    let added=false;
+    try{
+      const session=await this.get(bootstrap,{...p,proxyMode:'none',proxyUrl:''});
+      emit({type:'stage',message:'SSH 主机指纹及密码已核验，正在追加当前用户的公钥。'});
+      const source=readFileSync(join(ROOT,'server','authorize_key.py')).toString('base64');
+      const command="python3 -c 'import base64;exec(base64.b64decode(\""+source+"\"))'";
+      let output='';const code=await this.exec(session,command,JSON.stringify({publicKey:identity.publicKey}),{timeout:30000,onData:d=>{output+=d;if(output.length>16384)throw Error('公钥步骤输出异常。');}});
+      let result;try{result=JSON.parse(output);}catch{throw Error('服务器未返回有效的公钥操作结果；需要 Python 3。');}
+      if(code!==0||typeof result.alreadyPresent!=='boolean')throw Error(result.error||'服务器未能安全追加公钥。');
+      added=true;emit({type:'info',message:result.alreadyPresent?'公钥已存在，保留原有条目及其限制。':'公钥已追加，原有其他公钥已保留；修改前已备份非空原文件。'});
+      const keyed={...p,sshAuth:'key',password:'',keyPath:identity.keyPath,proxyMode:'none',proxyUrl:''};
+      let verified='';const keySession=await this.get(check,keyed);
+      if(await this.exec(keySession,'printf SSH_KEY_OK','',{timeout:30000,onData:d=>verified+=d})||verified!=='SSH_KEY_OK')throw Error('密钥登录后的命令验证未通过。');
+      this.close(id);emit({type:'success',message:'独立 SSH 连接已通过私钥认证及命令验证，将保存为密钥登录。'});
+      return {sshAuth:'key',keyPath:identity.keyPath,password:''};
+    }catch(error){
+      if(error instanceof HostTrustRequired){this.candidates.set(id,this.candidates.get(bootstrap));this.candidates.delete(bootstrap);throw error;}
+      if(added)emit({type:'info',message:'公钥条目已保留，但密钥验证未通过；本机仍保留原密码配置，请检查服务器是否允许公钥登录。'});
+      throw error;
+    }finally{this.close(bootstrap);this.close(check);this.candidates.delete(bootstrap);}
+  }
   async run(id,p,action,emit){
+    if(action==='install-ssh-key')return this.installSshKey(id,p,emit);
     const s=await this.get(id,p);
     if(action==='probe'){emit({type:'success',message:'SSH 主机指纹及认证已验证。'});return;}
     const upload='umask 077\nmkdir -p "$HOME/.local/share/cloud-codex-setup"\ncat > "$HOME/.local/share/cloud-codex-setup/setup.py.part"\nchmod 700 "$HOME/.local/share/cloud-codex-setup/setup.py.part"\nmv "$HOME/.local/share/cloud-codex-setup/setup.py.part" "$HOME/.local/share/cloud-codex-setup/setup.py"';

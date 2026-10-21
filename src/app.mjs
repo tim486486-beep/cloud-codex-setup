@@ -8,7 +8,7 @@ import {Vault} from './vault.mjs';
 import {DEFAULTS,parseSsh,publicProfile,redact} from './profile.mjs';
 import {RemoteManager,HostTrustRequired,detectVscodeCommit} from './remote.mjs';
 const ROOT=join(dirname(fileURLToPath(import.meta.url)),'..');
-const ACTIONS=new Set(['probe','install','setup','login','verify','model-test','tunnel']);
+const ACTIONS=new Set(['probe','install','setup','login','verify','model-test','tunnel','install-ssh-key']);
 export async function startApp({vault=new Vault(),manager=new RemoteManager(),port=0,open=false}={}){
   const token=randomBytes(32).toString('hex'),jobs=new Map();let origin='';
   const send=(res,status,value)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8'});res.end(JSON.stringify(value));};
@@ -45,7 +45,7 @@ export async function startApp({vault=new Vault(),manager=new RemoteManager(),po
         // Keep only a bounded number of in-memory histories. No logs are written into the project.
         if(jobs.size>100){const old=[...jobs].find(([,j])=>j.status!=='running');if(old)jobs.delete(old[0]);}
         const job={id:randomUUID(),profileId:id,action,status:'running',events:[]};jobs.set(job.id,job);send(res,202,{id:job.id});
-        void (async()=>{let loginRequired=false;try{await manager.run(id,p,action,event=>{if(event.type==='login_required')loginRequired=true;if(job.events.length<250)job.events.push({...JSON.parse(redact(JSON.stringify(event),p)),time:new Date().toISOString()});});job.status=loginRequired?'needs_login':'succeeded';}catch(error){job.status='failed';job.events.push({type:'error',message:redact(error.message,p)});if(error instanceof HostTrustRequired)job.trustFingerprint=error.fingerprint;}})();return;
+        void (async()=>{let loginRequired=false;try{const update=await manager.run(id,p,action,event=>{if(event.type==='login_required')loginRequired=true;if(job.events.length<250)job.events.push({...JSON.parse(redact(JSON.stringify(event),p)),time:new Date().toISOString()});});if(action==='install-ssh-key'){if(update?.sshAuth!=='key')throw Error('密钥验证未完成，未修改登录方式。');vault.save({...p,...update},id);}job.status=loginRequired?'needs_login':'succeeded';}catch(error){job.status='failed';job.events.push({type:'error',message:redact(error.message,p)});if(error instanceof HostTrustRequired)job.trustFingerprint=error.fingerprint;}})();return;
       }
       return send(res,404,{error:'Not found'});
     }catch(error){return send(res,400,{error:/ENOENT/.test(error.message)?'配置或文件不存在。':redact(error.message)});}

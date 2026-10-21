@@ -10,3 +10,5 @@
 - The optional Cline configuration is currently limited to the reviewed 4.1.25 DeepSeek schema. Keep API checks separate from observed UI conversations.
 - Before release, run tests and source syntax checks, scan for personal data using an external private audit, and build from the explicit public allowlist. Do not include private audit inputs or personal test reports in public archives.
 - Never create or power off a server as part of this public installer. A human or separate authorized provider workflow owns the server lifecycle.
+
+- `install-ssh-key` is an explicit public-key enrollment action using a saved SSH password and the current user's local private key. Obtain authorization for the target before invoking it. Verify the SSH host first; upload only the derived public key, preserve other entries and restrictions, and switch the saved profile only after an independent signed-key login and command check pass. Never generate or overwrite a private key implicitly, disable password login, or claim upload alone proves usable key authentication.

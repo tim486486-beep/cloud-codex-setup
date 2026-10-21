@@ -8,7 +8,7 @@ const version=JSON.parse(readFileSync(join(root,'package.json'),'utf8')).version
 const out=resolve(process.argv[2]||join(root,'..','public-releases'));
 mkdirSync(out,{recursive:true});
 const hash=p=>createHash('sha256').update(readFileSync(p)).digest('hex');
-const dirs=['src','public','server','tests','scripts'];
+const dirs=['src','public','server','tests','scripts','.github'];
 const top=['package.json','package-lock.json','README.md','使用教程.md','AGENTS.md','SECURITY.md','THIRD_PARTY.md','LICENSE','.gitignore','.gitattributes','start.cmd','start.sh'];
 function tree(dir){return readdirSync(dir).sort().flatMap(n=>{const p=join(dir,n);if(lstatSync(p).isSymbolicLink())throw Error('Release symlink rejected');if(['__pycache__','test','examples','bench'].includes(n))return [];return lstatSync(p).isDirectory()?tree(p):[p];});}
 const own=[...top.map(n=>join(root,n)),...dirs.flatMap(n=>tree(join(root,n)))].filter(p=>!p.endsWith('.pyc'));

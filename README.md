@@ -8,8 +8,8 @@
 
 ## 下载
 
-- [Windows x64 便携版 v1.1.1](https://github.com/tim486486-beep/cloud-codex-setup/releases/download/v1.1.1/cloud-codex-setup-windows-x64-v1.1.1.zip)：内置 Node.js，解压后双击 start.cmd。
-- [源码版与 SHA-256 校验文件](https://github.com/tim486486-beep/cloud-codex-setup/releases/tag/v1.1.1)。
+- [Windows x64 便携版 v1.2.0](https://github.com/tim486486-beep/cloud-codex-setup/releases/download/v1.2.0/cloud-codex-setup-windows-x64-v1.2.0.zip)：内置 Node.js，解压后双击 start.cmd。
+- [源码版与 SHA-256 校验文件](https://github.com/tim486486-beep/cloud-codex-setup/releases/tag/v1.2.0)。
 
 使用教程直接位于项目和解压包的根目录。
 
@@ -21,7 +21,7 @@ Cline 4.1.25 面板真实会话已在正常 GPU 模式下完成：微软 VS Code
 
 OpenAI API Key 已在 Windows 本机隔离的 CODEX_HOME 中通过标准输入登录，确认保存为 apikey 模式，官方模型列表接口返回 HTTP 200。一次最小模型请求返回 HTTP 429 / credit_balance_exhausted；尚未完成 API Key 模式的服务器部署及 Codex 真实模型回复验收。临时明文登录文件在检查后删除，未覆盖现有登录。另一云厂商、ARM64、非 root 实机部署及非 Windows 本地客户端也未逐项实测。
 
-1.1.1 修复 npm 首次运行提示混入版本 JSON 导致安装失败的问题，标准输出与私有错误日志分别保存。1.1.0 新增安装时自动跟随 Codex CLI 官方最新稳定版，兼容旧配置并核对实际运行版本。1.0.7 更新了 Cline 面板验收范围和操作说明。1.0.6 修复了 Windows 直接运行 CLI 时中文配置的子进程编码问题，以及设备登录失败时误把令牌 API 地址当成授权网页的问题。
+1.2.0 新增通过已保存 SSH 密码添加本机公钥、独立验证密钥登录并切换已保存认证方式。1.1.1 修复 npm 首次运行提示混入版本 JSON 导致安装失败的问题，标准输出与私有错误日志分别保存。1.1.0 新增安装时自动跟随 Codex CLI 官方最新稳定版，兼容旧配置并核对实际运行版本。1.0.7 更新了 Cline 面板验收范围和操作说明。1.0.6 修复了 Windows 直接运行 CLI 时中文配置的子进程编码问题，以及设备登录失败时误把令牌 API 地址当成授权网页的问题。
 
 ## 完整使用教程
 
@@ -50,6 +50,14 @@ npm start
 6. 点击“安装 / 升级并验证”。选择设备码登录且服务器尚未登录时，先完成安装，页面提示等待本人登录；点击“设备码登录”并在 OpenAI 官方网页完成授权，再点击“验证 Codex”。
 
 验证会发送两次小量真实 Codex 请求，使用所选账号额度。只有最终精确 `EXT_OK`、真实命令执行成功和最终 `TOOL_OK` 同时成立，才记录验证成功。`login status` 或版本号不等于真实调用成功。
+
+## 首次添加自己的 SSH 公钥
+
+选择“SSH 密码”，填写服务器密码，以及本机私钥路径和密码短语（如有）；路径留空时使用当前用户的默认密钥。保存配置，检查 SSH 并向提供方核实主机指纹，再点击“添加本机公钥并切换密钥登录”。
+
+程序在本机从私钥推导公钥，仅将公钥追加到当前 SSH 用户的 `~/.ssh/authorized_keys`，保留其他条目，并备份修改前的非空文件；同一公钥已有授权时不重复添加，也不会去除已有访问限制。随后建立独立的密钥 SSH 连接并实际执行验证命令，成功才将本机配置改为密钥认证并清除该配置中已保存的 SSH 密码。失败时保留原密码配置，页面会说明公钥是否已经添加。不修改 sshd 的密码登录设置。
+
+私钥始终在本机，不会上传。需要已有密钥对；没有时请先自行使用 `ssh-keygen -t ed25519` 创建，不覆盖已有密钥。仅选择已有私钥或 SSH Agent 并检查连接，不会触发公钥上传。服务器需要 Python 3，且允许公钥认证；自定义 AuthorizedKeysFile、只读 home、符号链接形式的 `.ssh` / `authorized_keys` 等环境需自行配置。
 
 ## 获取最新版与后续升级
 
@@ -90,6 +98,7 @@ Linux/macOS 本地客户端：用户配置目录中的 AES-256-GCM 文件，密�
 ```sh
 node src/cli.mjs profiles
 node src/cli.mjs run PROFILE_ID probe
+node src/cli.mjs run PROFILE_ID install-ssh-key  # 可选：密码连接添加本机公钥并验证
 node src/cli.mjs run PROFILE_ID setup
 node src/cli.mjs run PROFILE_ID login
 node src/cli.mjs run PROFILE_ID verify
@@ -98,7 +107,7 @@ node src/cli.mjs run PROFILE_ID model-test
 
 Windows 便携版可以把上面的 `node` 换成 `.\runtime\node.exe`。未知主机需先核实指纹，再使用 `trust PROFILE_ID SHA256:FINGERPRINT` 保存信任。CLI 的本机代理模式会保持运行，按 Ctrl+C 才断开。
 
-2026-10-21 使用公开便携包，在新租用的 Linux x86_64 / Ubuntu 24.04 基础镜像容器完成从零安装实测：官方 latest、包版本和实际 Codex CLI 均为 0.163.0，真实回复 EXT_OK，实际 shell 命令执行成功并返回 TOOL_OK，DeepSeek API 返回 CLINE_OK。重复安装重新查询官方 latest 并保留服务器登录文件。本轮未重测 Cline 面板会话；使用的是可选本机代理转发线路。首次 v1.1.0 实测暴露 npm 提示混入 JSON 的问题，v1.1.1 已修复并通过 32 项测试。
+2026-10-21 使用公开便携包，在新租用的 Linux x86_64 / Ubuntu 24.04 基础镜像容器完成从零安装实测：官方 latest、包版本和实际 Codex CLI 均为 0.163.0，真实回复 EXT_OK，实际 shell 命令执行成功并返回 TOOL_OK，DeepSeek API 返回 CLINE_OK。重复安装重新查询官方 latest 并保留服务器登录文件。本轮未重测 Cline 面板会话；使用的是可选本机代理转发线路。首次 v1.1.0 实测暴露 npm 提示混入 JSON 的问题，v1.2.0 已修复并通过 32 项测试。
 
 ## 开发与验证
 

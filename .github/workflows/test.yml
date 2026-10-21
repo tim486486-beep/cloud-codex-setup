@@ -1,0 +1,70 @@
+name: Tests
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  regression:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: npm ci --omit=optional
+      - run: npm test
+      - run: python -m unittest discover -s tests -p "test_*.py"
+  openssh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: npm ci --omit=optional
+      - name: Start isolated loopback OpenSSH for an unprivileged test user
+        shell: bash
+        run: |
+          sudo useradd --create-home --shell /bin/bash cloudcodexci
+          printf 'cloudcodexci:synthetic-local-ci-password\n' | sudo chpasswd
+          ssh-keygen -t ed25519 -N '' -f "$RUNNER_TEMP/cloud-codex-host" -q
+          cat > "$RUNNER_TEMP/cloud-codex-sshd.conf" <<EOF
+          Port 22422
+          ListenAddress 127.0.0.1
+          HostKey $RUNNER_TEMP/cloud-codex-host
+          PidFile $RUNNER_TEMP/cloud-codex-sshd.pid
+          PasswordAuthentication yes
+          PubkeyAuthentication yes
+          KbdInteractiveAuthentication no
+          UsePAM no
+          StrictModes yes
+          AuthorizedKeysFile .ssh/authorized_keys
+          AllowUsers cloudcodexci
+          PermitRootLogin no
+          LogLevel ERROR
+          EOF
+          sudo mkdir -p /run/sshd
+          sudo /usr/sbin/sshd -t -f "$RUNNER_TEMP/cloud-codex-sshd.conf"
+          sudo /usr/sbin/sshd -f "$RUNNER_TEMP/cloud-codex-sshd.conf" -E "$RUNNER_TEMP/cloud-codex-sshd.log"
+      - name: Test real OpenSSH enrollment and independent key authentication
+        run: node scripts/test-openssh.mjs
+        env:
+          CLOUD_CODEX_TEST_HOST_PUBLIC_KEY: ${{ runner.temp }}/cloud-codex-host.pub
+      - name: Stop temporary sshd
+        if: always()
+        shell: bash
+        run: |
+          if [ -f "$RUNNER_TEMP/cloud-codex-sshd.pid" ]; then
+            sudo kill "$(cat "$RUNNER_TEMP/cloud-codex-sshd.pid")"
+          fi
