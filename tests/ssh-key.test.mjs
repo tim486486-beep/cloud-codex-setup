@@ -38,3 +38,10 @@ test('real SSH uploads only a public key, verifies a separate signed-key login, 
  allowKey=false;await assert.rejects(manager.run(id,p,'install-ssh-key',e=>events.push(e)));assert.equal(p.sshAuth,'password');assert.ok(events.some(e=>e.message.includes('仍保留原密码配置')));
  await assert.rejects(manager.run(id,{...p,hostFingerprint:'SHA256:'+'B'.repeat(43)},'install-ssh-key',()=>{}),/指纹发生变化/);assert.equal(uploaded,3);
 });
+
+test('encrypted modern OpenSSH Ed25519 identity derives a matching public key',t=>{
+ const dir=temp(t),keyPath=join(dir,'id_ed25519'),passphrase='synthetic-ed25519-passphrase';
+ const keys=ssh2.utils.generateKeyPairSync('ed25519',{passphrase,cipher:'aes256-cbc'});writeFileSync(keyPath,keys.private);
+ assert.throws(()=>localIdentity({keyPath,passphrase:'wrong'}),/密码短语/);
+ const derived=localIdentity({keyPath,passphrase});assert.equal(derived.publicKey.split(' ')[1],keys.public.split(' ')[1]);assert.ok(derived.publicKey.startsWith('ssh-ed25519 '));
+});

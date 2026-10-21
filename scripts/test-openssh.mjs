@@ -11,9 +11,9 @@ import {validateProfile} from '../src/profile.mjs';
 const dir=mkdtempSync(join(tmpdir(),'cloud-codex-openssh-')),manager=new RemoteManager();
 const makeKey=()=>generateKeyPairSync('rsa',{modulusLength:2048,privateKeyEncoding:{type:'pkcs1',format:'pem'},publicKeyEncoding:{type:'pkcs1',format:'pem'}}).privateKey;
 try{
- const keyPath=join(dir,'identity');writeFileSync(keyPath,makeKey(),{mode:0o600});
+ const keyPath=join(dir,'identity');writeFileSync(keyPath,ssh2.utils.generateKeyPairSync('ed25519',{passphrase:'synthetic-openssh-passphrase',cipher:'aes256-cbc'}).private,{mode:0o600});
  const pub=localIdentity({keyPath}).publicKey,other=ssh2.utils.parseKey(makeKey());
- let p=validateProfile({host:'127.0.0.1',port:22422,user:'cloudcodexci',sshAuth:'password',password:'synthetic-local-ci-password',keyPath});const id=randomUUID(),events=[];
+ let p=validateProfile({host:'127.0.0.1',port:22422,user:'cloudcodexci',sshAuth:'password',password:'synthetic-local-ci-password',keyPath,passphrase:'synthetic-openssh-passphrase'});const id=randomUUID(),events=[];
  const emit=e=>{events.push(e);console.log(e.type+': '+e.message);};
  try{await manager.run(id,p,'install-ssh-key',emit);assert.fail('Unknown host was accepted');}catch(e){assert.ok(e instanceof HostTrustRequired);const expected=fingerprint(ssh2.utils.parseKey(readFileSync(process.env.CLOUD_CODEX_TEST_HOST_PUBLIC_KEY)).getPublicSSH());assert.equal(e.fingerprint,expected);p=manager.trust(id,p,expected);}
  async function python(profile,source,input={}){const session=await manager.get(id,profile);const command="python3 -c 'import base64;exec(base64.b64decode(\""+Buffer.from(source).toString('base64')+"\"))'";let output='';const rc=await manager.exec(session,command,JSON.stringify(input),{timeout:30000,onData:d=>output+=d});assert.equal(rc,0,'remote QA step failed');return JSON.parse(output);}

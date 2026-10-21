@@ -107,7 +107,9 @@ node src/cli.mjs run PROFILE_ID model-test
 
 Windows 便携版可以把上面的 `node` 换成 `.\runtime\node.exe`。未知主机需先核实指纹，再使用 `trust PROFILE_ID SHA256:FINGERPRINT` 保存信任。CLI 的本机代理模式会保持运行，按 Ctrl+C 才断开。
 
-2026-10-21 使用公开便携包，在新租用的 Linux x86_64 / Ubuntu 24.04 基础镜像容器完成从零安装实测：官方 latest、包版本和实际 Codex CLI 均为 0.163.0，真实回复 EXT_OK，实际 shell 命令执行成功并返回 TOOL_OK，DeepSeek API 返回 CLINE_OK。重复安装重新查询官方 latest 并保留服务器登录文件。本轮未重测 Cline 面板会话；使用的是可选本机代理转发线路。首次 v1.1.0 实测暴露 npm 提示混入 JSON 的问题，v1.2.0 已修复并通过 32 项测试。
+2026-10-21 使用公开便携包，在新租用的 Linux x86_64 / Ubuntu 24.04 基础镜像容器完成从零安装实测：官方 latest、包版本和实际 Codex CLI 均为 0.163.0，真实回复 EXT_OK，实际 shell 命令执行成功并返回 TOOL_OK，DeepSeek API 返回 CLINE_OK。重复安装重新查询官方 latest 并保留服务器登录文件。本轮未重测 Cline 面板会话；使用的是可选本机代理转发线路。首次 v1.1.0 实测暴露 npm 提示混入 JSON 的问题，v1.1.1 已修复并通过 32 项测试。
+
+新增公钥功能另通过 Linux 临时测试机上的真实 OpenSSH 普通用户验收，覆盖密码首次连接、添加及备份公钥、独立密钥认证、重复上传，以及保留已有受限公钥。该测试使用临时合成密钥；它不代表非 root 用户的完整 Codex 部署已补测。算家云本轮正常模式开机受资源限制，新建请求返回 HTTP 500，未在该平台完成本轮公钥测试。
 
 ## 开发与验证
 
