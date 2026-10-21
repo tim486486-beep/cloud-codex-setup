@@ -4,10 +4,18 @@
 
 ## 下载
 
-- [Windows x64 便携版 v1.0.5](https://github.com/tim486486-beep/cloud-codex-setup/releases/download/v1.0.5/cloud-codex-setup-windows-x64-v1.0.5.zip)：内置 Node.js，解压后双击 start.cmd。
-- [源码版与 SHA-256 校验文件](https://github.com/tim486486-beep/cloud-codex-setup/releases/tag/v1.0.5)。
+- [Windows x64 便携版 v1.0.6](https://github.com/tim486486-beep/cloud-codex-setup/releases/download/v1.0.6/cloud-codex-setup-windows-x64-v1.0.6.zip)：内置 Node.js，解压后双击 start.cmd。
+- [源码版与 SHA-256 校验文件](https://github.com/tim486486-beep/cloud-codex-setup/releases/tag/v1.0.6)。
 
 使用教程直接位于项目和解压包的根目录。
+
+## 已验证范围
+
+Windows 客户端到 Linux x86_64 已验证 SSH 密码与私钥、Codex 登录文件导入、本人设备码授权后的真实 EXT_OK 回复与 shell 执行 TOOL_OK、DeepSeek API 和 SSH 本机代理转发。设备码登录本次在本机 HTTP 代理经 SSH 转发的线路上通过；原服务器代理线路未完成令牌交换。
+
+Cline 面板真实会话尚未完成；OpenAI API Key 登录因未提供对应密钥而未实测。ARM64、非 root 实机部署及非 Windows 本地客户端也未逐项实测。不要把 DeepSeek API 通过当成 Cline 面板会话通过。
+
+1.0.6 修复了 Windows 直接运行 CLI 时中文配置的子进程编码问题，以及设备登录失败时误把令牌 API 地址当成授权网页的问题。
 
 ## 完整使用教程
 

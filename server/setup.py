@@ -203,19 +203,21 @@ def device_login():
     emit('stage','等待设备码登录；请在浏览器中完成本人授权。')
     process=subprocess.Popen([str(BIN/'codex'),'login','--device-auth'],stdout=subprocess.PIPE,stderr=subprocess.STDOUT,stdin=subprocess.DEVNULL,text=True,env=environment(),bufsize=1)
     deadline=threading.Timer(900,process.terminate);deadline.daemon=True;deadline.start()
-    started=time.time();url='';code=''
+    started=time.time();url='';code='';http_status=''
     try:
         # The parent SSH operation has its own deadline; no device code is written to disk.
         for raw in process.stdout:
             line=re.sub(r'\x1b\[[0-9;]*[A-Za-z]','',raw)
-            found=re.search(r'https://auth\.openai\.com/[A-Za-z0-9/_?=.&-]+',line)
-            if found:url=found.group(0)
-            found=re.search(r'\b[A-Z0-9]{4,6}-[A-Z0-9]{4,6}\b',line)
-            if found:code=found.group(0)
-            if found or 'https://auth.openai.com/' in line:emit('device','请打开官方授权地址并输入设备码。',url=url,code=code)
+            found_url=re.search(r'https://auth\.openai\.com/codex/device(?:\?[A-Za-z0-9/_?=.&-]+)?',line)
+            if found_url:url=found_url.group(0)
+            found_code=re.search(r'\b[A-Z0-9]{4,6}-[A-Z0-9]{4,6}\b',line)
+            if found_code:code=found_code.group(0)
+            status=re.search(r'\b(?:HTTP(?:/\d(?:\.\d)?)?\s*|status(?:\s+code)?\s*[:=]?\s*)([45]\d\d)\b',line,re.I)
+            if status:http_status=status.group(1)
+            if found_url or found_code:emit('device','请打开官方授权地址并输入设备码。',url=url,code=code)
             if time.time()-started>900:raise RuntimeError('设备授权等待超时。')
         rc=process.wait(timeout=30)
-        if rc or not login_status():raise RuntimeError('设备授权未完成或账户不允许设备登录，请检查账户设置或导入登录文件。')
+        if rc or not login_status():raise RuntimeError('设备授权未完成或账户不允许设备登录，请检查账户设置或导入登录文件。'+(' HTTP '+http_status if http_status else ''))
     finally:
         deadline.cancel()
         if process.poll() is None:process.terminate()
