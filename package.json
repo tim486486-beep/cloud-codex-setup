@@ -1,6 +1,6 @@
 {
   "name": "cloud-codex-setup",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Local configuration wizard and provider-independent SSH installer for Codex and optional Cline",
   "license": "MIT",
   "type": "module",

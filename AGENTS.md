@@ -12,3 +12,5 @@
 - Never create or power off a server as part of this public installer. A human or separate authorized provider workflow owns the server lifecycle.
 
 - `install-ssh-key` is an explicit public-key enrollment action using a saved SSH password and the current user's local private key. Obtain authorization for the target before invoking it. Verify the SSH host first; upload only the derived public key, preserve other entries and restrictions, and switch the saved profile only after an independent signed-key login and command check pass. Never generate or overwrite a private key implicitly, disable password login, or claim upload alone proves usable key authentication.
+
+- Retain prior Releases, their assets and version tags when publishing new versions; only mark the new stable Release as latest. Do not remove historical versions unless the user explicitly requests it again.

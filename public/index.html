@@ -6,9 +6,11 @@
 <label>配置名称<input name="name" required maxlength="80" placeholder="我的开发服务器"></label>
 <fieldset><legend>1 · SSH 连接</legend><label>粘贴 SSH 命令（可选）<div class="inline"><input id="ssh-command" placeholder="ssh user@example.com -p 22"><button type="button" id="parse" class="secondary">填入</button></div></label>
 <div class="row"><label>主机 / IP<input name="host" required placeholder="example.com"></label><label>端口<input name="port" type="number" min="1" max="65535" required></label><label>用户名<input name="user" required></label></div>
-<label>认证方式<select name="sshAuth"><option value="key">已有本机私钥</option><option value="password">SSH 密码</option><option value="agent">SSH Agent</option></select></label>
+<label>认证方式<select name="sshAuth"><option value="key">私钥登录（服务器已授权公钥）</option><option value="password">SSH 密码 / 首次添加公钥</option><option value="agent">SSH Agent</option></select></label>
+<p id="ssh-auth-help" class="small"></p>
+<div data-ssh="key" id="key-first-use"><p class="small">服务器还没授权这把私钥对应的公钥？先用服务器 SSH 密码添加公钥，再切换为私钥登录。</p><button type="button" id="prepare-key-login" class="secondary">首次配置：填写 SSH 密码并添加公钥</button></div>
 <div id="key-fields"><label>私钥文件路径<input name="keyPath" placeholder="留空自动使用本机 ~/.ssh/id_ed25519 或 id_rsa"></label><label>私钥密码短语（如有）<input name="passphrase" type="password"></label><p class="small">私钥只在本机读取，不会上传到服务器。密码认证下可填写自己的私钥路径，再使用下方“添加本机公钥”按钮；留空自动查找当前用户默认密钥。</p></div>
-<div data-ssh="password"><label>SSH 密码<input name="password" type="password"></label></div><p id="fingerprint" class="small"></p></fieldset>
+<div data-ssh="password"><label>服务器 SSH 密码（首次添加公钥时使用）<input name="password" type="password" autocomplete="new-password"></label><p class="small">这是服务器账号的密码，与上方“私钥密码短语”不同。填写后先保存、检查 SSH 并核对指纹，再点下方“添加本机公钥并切换密钥登录”；也可以继续只用密码安装。</p></div><p id="fingerprint" class="small"></p></fieldset>
 <fieldset><legend>2 · Codex 登录</legend><label>登录方式<select name="codexAuth"><option value="device">稍后使用设备码登录</option><option value="file">导入我自己的 auth.json</option><option value="api">OpenAI API Key</option><option value="existing">沿用服务器已有登录</option></select></label>
 <div data-auth="file"><label>选择 Codex 登录文件<input id="auth-file" type="file" accept=".json,application/json"></label><p id="auth-file-status" class="small">选择你自己的 auth.json；文件内容会加密保存。</p></div>
 <div data-auth="api"><label>OpenAI API Key<input name="openaiKey" type="password"></label><p class="small">这是 Codex 的 OpenAI key，与下方 Cline 的 DeepSeek key 分开。</p></div>
