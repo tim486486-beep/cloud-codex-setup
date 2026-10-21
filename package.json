@@ -1,0 +1,10 @@
+{
+  "name": "cloud-codex-setup",
+  "version": "1.0.5",
+  "description": "Local configuration wizard and provider-independent SSH installer for Codex and optional Cline",
+  "license": "MIT",
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "scripts": { "start": "node src/app.mjs", "test": "node --test tests/*.test.mjs" },
+  "dependencies": { "ssh2": "1.17.0" }
+}
