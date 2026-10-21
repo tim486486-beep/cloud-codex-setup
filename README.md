@@ -2,6 +2,8 @@
 
 一个在本机运行的配置向导：保存用户提供的 SSH、Codex 登录和代理信息，然后通过 SSH 为 Linux 服务器安装 Codex CLI，可选安装 Cline / DeepSeek。与云厂商无关；不会租用、重建、开关或删除实例。
 
+**本项目无需依赖 SSH 反向隧道代理。** 服务器可直连，或使用用户提供的服务器端代理；“通过 SSH 转发本机 HTTP 代理”仅为可选方案，选择该方案时才需要保持本机程序和 SSH 通道运行。
+
 ## 下载
 
 - [Windows x64 便携版 v1.0.7](https://github.com/tim486486-beep/cloud-codex-setup/releases/download/v1.0.7/cloud-codex-setup-windows-x64-v1.0.7.zip)：内置 Node.js，解压后双击 start.cmd。
